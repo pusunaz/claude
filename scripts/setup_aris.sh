@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Idempotent ARIS bootstrap for this project.
+# Idempotent ARIS bootstrap for a research project.
+# Usage: bash setup_aris.sh [project_dir]   (default: current directory)
 #   1. Clone (or update with ARIS_UPDATE=1) ARIS to $ARIS_REPO (default ~/aris_repo)
 #   2. Symlink ARIS skills into .claude/skills/ via the upstream installer
 #   3. Register the `codex` MCP reviewer in Claude Code if codex CLI is present
@@ -8,7 +9,7 @@ set -euo pipefail
 
 ARIS_URL="https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep.git"
 ARIS_REPO="${ARIS_REPO:-$HOME/aris_repo}"
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+PROJECT_DIR="$(cd "${1:-${CLAUDE_PROJECT_DIR:-$PWD}}" && pwd)"
 export ARIS_REPO
 
 log() { printf '[setup_aris] %s\n' "$*" >&2; }

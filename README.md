@@ -1,66 +1,76 @@
-# ARIS 研究项目
+# ARIS Kit
 
-基于 [ARIS (Auto-claude-code-research-in-sleep)](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/README_CN.md)
-的研究项目骨架：Claude Code 作为执行者，Codex MCP (GPT) 作为跨模型审稿人。
+在一台实验室电脑上同时运行多个 [ARIS](https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep/blob/main/README_CN.md)
+研究项目的工具箱：Claude Code 是执行者，Codex MCP (GPT) 是审稿人，每个项目各有一个可从笔记本或手机远程控制的会话。
 
-## 一次性配置（在你自己的电脑上）
+## 目录结构
+
+```
+~/aris_repo/            ARIS 本体（共用一份，setup_aris.sh 自动克隆）
+~/aris-kit/             本仓库：脚本 + 项目模板
+~/projects/
+  fault-diagnosis/      每个项目一个文件夹，各自独立的 git 仓库
+    CLAUDE.md           研究方向 + GPU 配置（Claude 每次都会读）
+    code/ data/ records/ literature/ paper/ experiments/
+    research-wiki/      ARIS 自动积累的知识库
+  esu/
+  ai-trustworthiness/
+  tableting/
+```
+
+`data/`、`literature/`、`.claude/skills/`、`.aris/` 不进 git。
+
+## 一次性准备（实验室电脑，WSL Ubuntu）
+
+前提：已装好 conda（环境 `research`）、Node.js、Claude Code、Codex，并完成 `codex login`。
 
 ```bash
-# 0. 前置工具
-claude --version                 # Claude Code
-codex --version && codex login   # Codex CLI + 一次性 ChatGPT 登录（审稿人需要）
-# 可选，写论文用：brew install --cask mactex && brew install poppler
-
-# 1. 克隆本仓库并一键安装
-git clone https://github.com/pusunaz/claude.git && cd claude
-bash scripts/setup_aris.sh
-#  - 把 ARIS 克隆到 ~/aris_repo（可用 ARIS_REPO=/path 覆盖）
-#  - 把全部 skill 软链接到 .claude/skills/（只装部分：ARIS_GROUPS=lit-search,ideation,review-loop）
-#  - 检测到 codex 时自动执行 claude mcp add codex -s user ...
-
-# 2. 重启 Claude Code，然后验证
-claude mcp list | grep codex     # 应显示 ✓ Connected
+git clone https://github.com/pusunaz/claude.git ~/aris-kit
 ```
 
-然后编辑 `CLAUDE.md`：填写 **Research Direction** 和 **Remote Server**
-（GPU 服务器需先 `ssh-copy-id username@server` 配好免密登录）。
+## 新建项目
 
-更新 ARIS：`ARIS_UPDATE=1 bash scripts/setup_aris.sh`
-
-## 首次运行
-
-在本目录启动 `claude`：
-
+```bash
+bash ~/aris-kit/scripts/new_project.sh fault-diagnosis
 ```
-/research-wiki init                              # 初始化知识库
-用 codex MCP 问一下 GPT：1+1 等于几                 # 验证跨模型通信
-/alphaxiv https://arxiv.org/abs/1706.03762       # 验证 skill 可用
+
+然后编辑 `~/projects/fault-diagnosis/CLAUDE.md` 里的 Research Direction（也可以让 Claude 改）。
+
+## 启动远程控制
+
+```bash
+bash ~/aris-kit/scripts/start_remote.sh            # 所有项目
+bash ~/aris-kit/scripts/start_remote.sh esu        # 只启动某几个
 ```
+
+每个项目在一个同名的 tmux 会话里运行 `claude remote-control`。之后在笔记本浏览器打开
+claude.ai/code，或者在手机 Claude App 的 Code 页面里选择对应项目。
+
+- 某个项目第一次启动时需要确认信任文件夹：`tmux attach -t 项目名`，回答后按 `Ctrl+B` 再按 `D`
+- 查看：`tmux ls`；停止某个项目：`tmux attach -t 项目名` 后按 `Ctrl+C`
+- 实验室电脑重启后：打开 Ubuntu，再运行一次 `start_remote.sh`
+- 至少保持一个 Ubuntu 窗口开着（最小化即可），电脑不要睡眠
 
 ## 工作流
 
 ```
+/research-wiki init                        # 每个项目第一次用时
 /idea-discovery "具体的研究方向"            # W1：找 idea + 查新 + 精炼
 /experiment-bridge                         # W1.5：实现 + 部署 + 收结果
 /auto-review-loop "论文主题"                # W2：审稿 -> 修复 -> 再审，过夜运行
 /paper-writing "NARRATIVE_REPORT.md"       # W3：叙事 -> PDF
-/research-pipeline "具体的研究方向"         # 全流程，默认停在 NARRATIVE_REPORT.md
 ```
 
-## 过夜运行免确认（可选）
+GPU（RTX 4080 16GB）是所有项目共用的：同一时间只跑一个大实验。
 
-在 `.claude/settings.local.json`（已 gitignore）中加入：
+## 更新
 
-```json
-{
-  "permissions": {
-    "allow": ["mcp__codex__codex", "mcp__codex__codex-reply", "Write", "Edit", "Skill(auto-review-loop)"]
-  }
-}
+```bash
+cd ~/aris-kit && git pull                                        # 更新本工具箱
+cd ~/projects/<项目> && ARIS_UPDATE=1 bash ~/aris-kit/scripts/setup_aris.sh   # 更新 ARIS
 ```
 
-## 没有 OpenAI / Codex 时的审稿人替代
+## 没有 Codex 时的审稿人替代
 
-- `— reviewer: manual`：自己贴审稿意见（不能无人值守）
-- `llm-chat` MCP：任意 OpenAI 兼容 API（DeepSeek、Kimi、OpenRouter 等），见 ARIS `docs/LLM_API_MIX_MATCH_GUIDE.md`
-- 更多组合见 ARIS `docs/MODEL_COMBINATIONS_CN.md`
+- `— reviewer: manual`：自己把审稿意见贴进来
+- `llm-chat` MCP：任意 OpenAI 兼容 API，见 ARIS `docs/LLM_API_MIX_MATCH_GUIDE.md`
